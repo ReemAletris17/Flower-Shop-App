@@ -7,6 +7,9 @@ import AddProduct from './src/components/AddProduct';
 import BarCode from './src/components/BarCode';
 import PushNotifications from './src/components/PushNotifications';
 import StoreLocator from './src/components/StoreLocator';
+import ProductDetail from './src/components/ProductDetail';
+import Receipt from './src/components/Receipt';
+import CartScreen from './src/components/CartScreen';
 
 
 
@@ -42,6 +45,10 @@ const [email, setEmail] = useState(undefined)
       <Stack.Screen name="BarCode" component={BarCode} />
       <Stack.Screen name="PushNotifications" component={PushNotifications} />
       <Stack.Screen name="StoreLocator" component={StoreLocator} />
+      <Stack.Screen name="ProductDetail" component={ProductDetail} />
+      <Stack.Screen name="Receipt" component={Receipt} />
+      <Stack.Screen name="CartScreen" component={CartScreen} />
+      
     </Stack.Navigator>
     
   </NavigationContainer>
