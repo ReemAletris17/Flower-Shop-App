@@ -3,7 +3,7 @@
     "name": "Flower-shop",
     "slug": "Flower-shop",
     "version": "1.0.0",
-    "scheme":"Flower-shop",
+    "scheme": "Flower-shop",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

@@ -37,8 +37,9 @@ export default function CartScreen() {
         Total: EGP {getTotalPrice().toFixed(2)}
       </Text>
 
-      <Button title="Get Receipt" onPress={() => navigation.navigate('Receipt')} />
+      <Button title="🔐 Proceed to Checkout" onPress={() => navigation.navigate('CheckoutScreen')}/>
     </View>
+    
   )
 }
 

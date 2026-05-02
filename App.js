@@ -10,21 +10,20 @@ import StoreLocator from './src/components/StoreLocator';
 import ProductDetail from './src/components/ProductDetail';
 import Receipt from './src/components/Receipt';
 import CartScreen from './src/components/CartScreen';
-
-
-
+import NetworkBanner from './src/components/NetworkBanner';
+import CheckoutScreen from './src/components/CheckoutScreen'
+import OrderConfirmation from './src/components/OrderConfirmation'
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 const Stack = createNativeStackNavigator();
+
 export default function App() {
   const [userId, setUserId] = useState(null)
-const [email, setEmail] = useState(undefined)
+  const [email, setEmail] = useState(undefined)
 
   useEffect(() => {
-
-
-    supabase.auth.onAuthStateChange(async (_event, _session) => {
+      supabase.auth.onAuthStateChange(async (_event, _session) => {
       const { data: { claims } } = await supabase.auth.getClaims()
       if (claims) {
         setUserId(claims.sub)
@@ -36,10 +35,15 @@ const [email, setEmail] = useState(undefined)
     })
   }, [])
 
+  if (!userId) {
+    return <Auth />
+  }
+
   return (  
     
     <NavigationContainer>
-  <Stack.Navigator initialRouteName="ProductList">
+      <NetworkBanner />
+     <Stack.Navigator initialRouteName="ProductList">
       <Stack.Screen name="ProductList" component={ProductList} />
       <Stack.Screen name="AddProduct" component={AddProduct} />
       <Stack.Screen name="BarCode" component={BarCode} />
@@ -48,7 +52,9 @@ const [email, setEmail] = useState(undefined)
       <Stack.Screen name="ProductDetail" component={ProductDetail} />
       <Stack.Screen name="Receipt" component={Receipt} />
       <Stack.Screen name="CartScreen" component={CartScreen} />
-      
+      <Stack.Screen name="CheckoutScreen" component={CheckoutScreen} initialParams={{ userId }}/>
+      <Stack.Screen name="OrderConfirmation" component={OrderConfirmation} />
+
     </Stack.Navigator>
     
   </NavigationContainer>

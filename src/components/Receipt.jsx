@@ -4,11 +4,13 @@ import * as Print from 'expo-print'
 import { shareAsync } from 'expo-sharing'
 import useCartStore from '../Store/useCartStore'
 
-export default function Receipt() {
-  const [selectedPrinter, setSelectedPrinter] = useState()
 
-  const items = useCartStore((state) => state.items)
-  const getTotalPrice = useCartStore((state) => state.getTotalPrice)
+export default function Receipt({ route }) {
+      const [selectedPrinter, setSelectedPrinter] = useState()
+
+      const { order } = route.params;
+      const items = order.items;
+      const getTotalPrice = () => order.total;
 
   const html = `
     <html>

@@ -27,7 +27,6 @@ const Item = ({ product, onAddToCart }) => (
       <Text style={styles.itemCategory}>{product.category}</Text>
       <Text style={styles.itemName}>{product.name}</Text>
       <Text style={styles.itemPrice}>EGP {Number(product.price).toFixed(2)}</Text>
-      <Text style={styles.itemid}>{product.id}</Text>
     </View>
 
     <View style={styles.stockRow}>
@@ -107,8 +106,7 @@ export default function ProductList({ navigation }) {
   const fetchProducts = async () => {
     try {
       const netState = await NetInfo.fetch()
-      const connected = netState.isConnected && netState.isInternetReachable
-
+      const connected = netState.isConnected && netState.isInternetReachable !== false;
       if (!connected) {
         setIsOffline(true)
         const cached = await loadProductsFromCache()
@@ -241,7 +239,7 @@ export default function ProductList({ navigation }) {
         <FlatList
           data={filteredProducts}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => String(item.id)}
           extraData={selectedId}
           ListHeaderComponent={ListHeaderComponent}
           ListFooterComponent={ListFooterComponent}
@@ -363,11 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#555',
-    marginTop: 4,
-  },
-  itemid: {
-    fontSize: 12,
-    color: '#999',
     marginTop: 4,
   },
   separator: {
