@@ -10,33 +10,32 @@ import {
   Image,
   ScrollView,
   Button,
+  Alert,
 } from 'react-native'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { saveProductsToCache, loadProductsFromCache } from '../components/OfflineBrowsing'
 import NetInfo from '@react-native-community/netinfo'
 import useCartStore from '../Store/useCartStore'
+import { useBatteryLevel, useLowPowerMode } from 'expo-battery'
+import * as Haptics from 'expo-haptics';
 
 const CATEGORIES = ['All', 'Flowers', 'Plants']
 
-const Item = ({ product, onAddToCart }) => (
+const Item = ({ product, onAddToCart, onAddToWishlist }) => (
   <View style={styles.itemContent}>
     <Image source={{ uri: product.image_url }} style={styles.image} resizeMode="cover" />
-
     <View style={styles.itemInfo}>
       <Text style={styles.itemCategory}>{product.category}</Text>
       <Text style={styles.itemName}>{product.name}</Text>
       <Text style={styles.itemPrice}>EGP {Number(product.price).toFixed(2)}</Text>
     </View>
-
     <View style={styles.stockRow}>
-      <View
-        style={[
-          styles.stockBadge,
-          product.stock === 0 && styles.stockBadgeOut,
-          product.stock <= 3 && product.stock > 0 && styles.stockBadgeLow,
-        ]}
-      >
+      <View style={[
+        styles.stockBadge,
+        product.stock === 0 && styles.stockBadgeOut,
+        product.stock <= 3 && product.stock > 0 && styles.stockBadgeLow,
+      ]}>
         <Text style={styles.stockText}>
           {product.stock === 0
             ? 'Out of Stock'
@@ -46,22 +45,27 @@ const Item = ({ product, onAddToCart }) => (
         </Text>
       </View>
     </View>
-
-    <Button
-      title="Add to Cart"
-      disabled={product.stock === 0}
-      onPress={() => onAddToCart(product)}
+    <Button title="Add to Cart" disabled={product.stock === 0} onPress={async () => {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  onAddToCart(product);
+}}
     />
+    <Button title="Add to Wishlist" onPress={() => onAddToWishlist(product)} color="#FF6B9D" />
+
   </View>
 )
 
-export default function ProductList({ navigation }) {
+export default function ProductList({ navigation, route }) {
+  const userId = route.params?.userId;
   const [products, setProducts] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedId, setSelectedId] = useState(null)
   const [isOffline, setIsOffline] = useState(false)
 
-  const addItem = useCartStore((state) => state.addItem)
+  const batteryLevel = useBatteryLevel()
+  const lowPowerMode = useLowPowerMode()
+  const syncAllowed = batteryLevel > 0.2 && !lowPowerMode;
+    const addItem = useCartStore((state) => state.addItem)
 
   const filteredProducts =
     selectedCategory === 'All'
@@ -84,11 +88,9 @@ export default function ProductList({ navigation }) {
               )
             )
           }
-
           if (payload.eventType === 'INSERT') {
             setProducts((prev) => [...prev, payload.new])
           }
-
           if (payload.eventType === 'DELETE') {
             setProducts((prev) =>
               prev.filter((p) => p.id !== payload.old.id)
@@ -105,8 +107,15 @@ export default function ProductList({ navigation }) {
 
   const fetchProducts = async () => {
     try {
+      if (!syncAllowed === false) {
+        Alert.alert('Low Battery', 'Battery is critically low — showing cached products to conserve power.')
+        const cached = await loadProductsFromCache()
+        if (cached) setProducts(cached)
+        return
+      }
+
       const netState = await NetInfo.fetch()
-      const connected = netState.isConnected && netState.isInternetReachable !== false;
+      const connected = netState.isConnected && netState.isInternetReachable !== false
       if (!connected) {
         setIsOffline(true)
         const cached = await loadProductsFromCache()
@@ -115,18 +124,13 @@ export default function ProductList({ navigation }) {
       }
 
       setIsOffline(false)
-
       const { data, error } = await supabase.from('products').select('*')
-
       if (error) throw error
-
       setProducts(data)
       await saveProductsToCache(data)
     } catch (error) {
       console.error('Error fetching products:', error)
-
       const cached = await loadProductsFromCache()
-
       if (cached) {
         setProducts(cached)
         setIsOffline(true)
@@ -136,36 +140,32 @@ export default function ProductList({ navigation }) {
 
   const renderItem = ({ item, separators }) => (
     <TouchableHighlight
-      key={item.id}
-      onPress={() => setSelectedId(item.id === selectedId ? null : item.id)}
-      onLongPress={() =>
-        navigation.navigate('ProductDetail', { productId: item.id })
-      }
-      onShowUnderlay={separators.highlight}
-      onHideUnderlay={separators.unhighlight}
-      style={[styles.item, item.id === selectedId && styles.itemSelected]}
-    >
-      <Item product={item} onAddToCart={addItem} />
-    </TouchableHighlight>
+  key={item.id}
+  onPress={() => setSelectedId(item.id === selectedId ? null : item.id)}
+  onLongPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+  onShowUnderlay={separators.highlight}
+  onHideUnderlay={separators.unhighlight}
+  style={[styles.item, item.id === selectedId && styles.itemSelected]}
+>
+  <Item
+    product={item}
+    onAddToCart={addItem}
+    onAddToWishlist={addToWishlist}
+  />
+</TouchableHighlight>
   )
 
   const ListHeaderComponent = () => (
     <View>
       {isOffline && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>
-            📵 Offline — showing cached products
-          </Text>
+          <Text style={styles.offlineText}>📵 Offline — showing cached products</Text>
         </View>
       )}
-
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🌸 Flower Shop</Text>
-        <Text style={styles.headerSubtitle}>
-          {filteredProducts.length} flowers available
-        </Text>
+        <Text style={styles.headerSubtitle}>{filteredProducts.length} flowers available</Text>
       </View>
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -176,18 +176,10 @@ export default function ProductList({ navigation }) {
           <TouchableHighlight
             key={category}
             onPress={() => setSelectedCategory(category)}
-            style={[
-              styles.chip,
-              selectedCategory === category && styles.chipSelected,
-            ]}
+            style={[styles.chip, selectedCategory === category && styles.chipSelected]}
             underlayColor="#c2185b"
           >
-            <Text
-              style={[
-                styles.chipText,
-                selectedCategory === category && styles.chipTextSelected,
-              ]}
-            >
+            <Text style={[styles.chipText, selectedCategory === category && styles.chipTextSelected]}>
               {category}
             </Text>
           </TouchableHighlight>
@@ -207,35 +199,24 @@ export default function ProductList({ navigation }) {
       <Text style={styles.footerText}>🌼 End of collection</Text>
     </View>
   )
+  async function addToWishlist(product) {
+    const { error } = await supabase
+      .from('wishlist')
+      .insert({ user_id: userId, product_id: String(product.id) });
+    if (error) Alert.alert('Error', error.message);
+    else Alert.alert('Added to Wishlist ❤️');
+  }
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
-        <Button
-          title="Add Product"
-          onPress={() => navigation.navigate('AddProduct')}
-        />
-
-        <Button
-          title="Scan Barcode"
-          onPress={() => navigation.navigate('BarCode')}
-        />
-
-        <Button
-          title="Push Notifications"
-          onPress={() => navigation.navigate('PushNotifications')}
-        />
-
-        <Button
-          title="Store Locator"
-          onPress={() => navigation.navigate('StoreLocator')}
-        />
-
-        <Button
-          title="View Cart"
-          onPress={() => navigation.navigate('CartScreen')}
-        />
-
+        <Button title="Add Product" onPress={() => navigation.navigate('AddProduct')} />
+        <Button title="Scan Barcode" onPress={() => navigation.navigate('BarCode')} />
+        <Button title="Push Notifications" onPress={() => navigation.navigate('PushNotifications')} />
+        <Button title="Store Locator" onPress={() => navigation.navigate('StoreLocator')} />
+        <Button title="View Cart" onPress={() => navigation.navigate('CartScreen')} />
+        <Button title="Order History" onPress={() => navigation.navigate('OrderHistory', { userId })} />
+        <Button title="Wishlist" onPress={() => navigation.navigate('Wishlist', { userId })} />
         <FlatList
           data={filteredProducts}
           renderItem={renderItem}
@@ -246,12 +227,7 @@ export default function ProductList({ navigation }) {
           ListEmptyComponent={ListEmptyComponent}
           ItemSeparatorComponent={({ highlighted }) =>
             Platform.OS !== 'android' && (
-              <View
-                style={[
-                  styles.separator,
-                  highlighted && { marginLeft: 0 },
-                ]}
-              />
+              <View style={[styles.separator, highlighted && { marginLeft: 0 }]} />
             )
           }
           initialNumToRender={5}

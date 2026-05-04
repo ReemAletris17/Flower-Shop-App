@@ -15,6 +15,9 @@ import CheckoutScreen from './src/components/CheckoutScreen'
 import OrderConfirmation from './src/components/OrderConfirmation'
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import OrderHistory from './src/components/OrderHistory';
+import OrderDetail from './src/components/OrderDetail';
+import Wishlist from './src/components/Wishlist'
 
 const Stack = createNativeStackNavigator();
 
@@ -44,7 +47,7 @@ export default function App() {
     <NavigationContainer>
       <NetworkBanner />
      <Stack.Navigator initialRouteName="ProductList">
-      <Stack.Screen name="ProductList" component={ProductList} />
+      <Stack.Screen name="ProductList" component={ProductList}  initialParams={{ userId }}/>
       <Stack.Screen name="AddProduct" component={AddProduct} />
       <Stack.Screen name="BarCode" component={BarCode} />
       <Stack.Screen name="PushNotifications" component={PushNotifications} />
@@ -54,7 +57,9 @@ export default function App() {
       <Stack.Screen name="CartScreen" component={CartScreen} />
       <Stack.Screen name="CheckoutScreen" component={CheckoutScreen} initialParams={{ userId }}/>
       <Stack.Screen name="OrderConfirmation" component={OrderConfirmation} />
-
+      <Stack.Screen name="OrderHistory" component={OrderHistory} initialParams={{ userId }}/>
+      <Stack.Screen name="OrderDetail" component={OrderDetail} />
+      <Stack.Screen name="Wishlist" component={Wishlist} initialParams={{ userId }} />
     </Stack.Navigator>
     
   </NavigationContainer>

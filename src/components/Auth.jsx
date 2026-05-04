@@ -49,7 +49,7 @@ export default function Auth() {
         <View style={{ alignItems: 'center', marginTop: 50 }}>
   <Image
     source={require('../../assets/logo.png')}
-    style={{ width: 0, height: 200 }}
+    style={{ width: 200, height: 200 }}
     resizeMode="contain"
   />
 </View>
