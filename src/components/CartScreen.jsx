@@ -25,9 +25,8 @@ export default function CartScreen() {
             <View style={styles.quantityRow}>
               <Button title="-" onPress={() => updateQuantity(item.id, -1)} />
               <Text>{item.quantity}</Text>
-              <Button title="+" onPress={() => updateQuantity(item.id, 1)} />
+              <Button title="+" onPress={() => updateQuantity(item.id, 1)}  />
             </View>
-
             <Button title="Remove" onPress={() => removeItem(item.id)} />
           </View>
         ))
@@ -44,11 +43,7 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#FFFDE7',
-  },
+ 
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -57,18 +52,12 @@ const styles = StyleSheet.create({
   item: {
     backgroundColor: '#fff',
     padding: 12,
-    marginBottom: 12,
-    borderRadius: 10,
-  },
+    marginBottom: 12,  },
   quantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginVertical: 8,
   },
   total: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 15,
-  },
+    fontWeight: 'bold',  },
 })

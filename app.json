@@ -61,7 +61,8 @@
           "recordAudioAndroid": true,
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      "expo-localization"
     ]
   }
 }

@@ -1,114 +1,143 @@
 import React, { useState, useEffect } from 'react'
-import {
-  FlatList,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableHighlight,
-  View,
-  Image,
-  ScrollView,
-  Button,
-  Alert,
-} from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableHighlight, View, Image, ScrollView, Button, Alert, Platform, StatusBar } from 'react-native'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { saveProductsToCache, loadProductsFromCache } from '../components/OfflineBrowsing'
 import NetInfo from '@react-native-community/netinfo'
 import useCartStore from '../Store/useCartStore'
 import { useBatteryLevel, useLowPowerMode } from 'expo-battery'
-import * as Haptics from 'expo-haptics';
+import * as Haptics from 'expo-haptics'
+import * as Notifications from 'expo-notifications'
+import useLocaleStore from '../Store/useLocaleStore'
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
 
 const CATEGORIES = ['All', 'Flowers', 'Plants']
 
-const Item = ({ product, onAddToCart, onAddToWishlist }) => (
-  <View style={styles.itemContent}>
-    <Image source={{ uri: product.image_url }} style={styles.image} resizeMode="cover" />
-    <View style={styles.itemInfo}>
-      <Text style={styles.itemCategory}>{product.category}</Text>
-      <Text style={styles.itemName}>{product.name}</Text>
-      <Text style={styles.itemPrice}>EGP {Number(product.price).toFixed(2)}</Text>
-    </View>
-    <View style={styles.stockRow}>
-      <View style={[
-        styles.stockBadge,
-        product.stock === 0 && styles.stockBadgeOut,
-        product.stock <= 3 && product.stock > 0 && styles.stockBadgeLow,
-      ]}>
-        <Text style={styles.stockText}>
-          {product.stock === 0
-            ? 'Out of Stock'
-            : product.stock <= 3
-            ? `Low Stock: ${product.stock} left`
-            : `✅ In Stock: ${product.stock}`}
-        </Text>
-      </View>
-    </View>
-    <Button title="Add to Cart" disabled={product.stock === 0} onPress={async () => {
-  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  onAddToCart(product);
-}}
-    />
-    <Button title="Add to Wishlist" onPress={() => onAddToWishlist(product)} color="#FF6B9D" />
+const lightTheme = {
+  bg: '#fff',
+  cardBg: '#f9f9f9',
 
-  </View>
-)
+}
+
+const darkTheme = {
+  bg: '#121212',
+  cardBg: '#1e1e1e',
+}
+
+async function sendAddToCartNotification(productName) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Added to Cart!',
+      body: `${productName} has been added to your cart.`,
+      sound: true,
+    },
+    trigger: null,
+  })
+}
+
+const Item = ({ product, onAddToCart, onAddToWishlist, onDecreaseStock, formatPrice, locale, theme }) => {
+  const stockBg =
+    product.stock === 0 ? '#ffebee' :
+    product.stock <= 3 ? '#fff8e1' :
+    '#e8f5e9'
+  const stockLabel =
+    product.stock === 0
+      ? (locale === 'en' ? 'Out of Stock' : 'Rupture de stock')
+      : product.stock <= 3
+      ? (locale === 'en' ? `Low Stock: ${product.stock} left` : `Stock faible: ${product.stock}`)
+      : (locale === 'en' ? `In Stock: ${product.stock}` : `En stock: ${product.stock}`)
+
+  return (
+    <View style={{ backgroundColor: theme.cardBg }}>
+      <Image source={{ uri: product.image_url }} style={styles.image} resizeMode="cover" />
+      <View style={styles.itemInfo}>
+        <Text style={{ color: '#FF6B9D', fontSize: 11, textTransform: 'uppercase' }}>{product.category}</Text>
+        <Text style={{ color: theme.nameText, fontSize: 18, fontWeight: '700', marginTop: 4 }}>{product.name}</Text>
+        <Text style={{ color: theme.priceText, fontSize: 16, marginTop: 4 }}>{formatPrice(product.price)}</Text>
+      </View>
+      <View style={[styles.stockBadge, { backgroundColor: stockBg }]}>
+        <Text style={{ color: '#333', fontSize: 12, fontWeight: '600' }}>{stockLabel}</Text>
+      </View>
+      <Button
+        title={locale === 'en' ? 'Add to Cart' : 'Ajouter au panier'}
+        disabled={product.stock === 0}
+        onPress={async () => {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          onAddToCart(product)
+          await sendAddToCartNotification(product.name)
+          await onDecreaseStock(product)
+        }}
+      />
+      <Button
+        title={locale === 'en' ? 'Add to Wishlist' : 'Ajouter aux favoris'}
+        onPress={() => onAddToWishlist(product)}
+        color="#FF6B9D"
+      />
+    </View>
+  )
+}
 
 export default function ProductList({ navigation, route }) {
-  const userId = route.params?.userId;
+  const userId = route.params?.userId
   const [products, setProducts] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedId, setSelectedId] = useState(null)
   const [isOffline, setIsOffline] = useState(false)
+  const [isDark, setIsDark] = useState(false)
+
+  const theme = isDark ? darkTheme : lightTheme
 
   const batteryLevel = useBatteryLevel()
   const lowPowerMode = useLowPowerMode()
-  const syncAllowed = batteryLevel > 0.2 && !lowPowerMode;
-    const addItem = useCartStore((state) => state.addItem)
+  const syncAllowed = batteryLevel === -1 || (batteryLevel > 0.2 && !lowPowerMode)
+
+  const addItem = useCartStore((state) => state.addItem)
+  const locale = useLocaleStore((state) => state.locale)
+  const toggleLocale = useLocaleStore((state) => state.toggleLocale)
+  const formatPrice = useLocaleStore((state) => state.formatPrice)
 
   const filteredProducts =
     selectedCategory === 'All'
       ? products
-      : products.filter((item) => item.category === selectedCategory)
+      : products.filter((p) => p.category === selectedCategory)
 
   useEffect(() => {
     fetchProducts()
 
     const channel = supabase
-      .channel('realtime-products')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setProducts((prev) =>
-              prev.map((p) =>
-                p.id === payload.new.id ? { ...p, ...payload.new } : p
-              )
-            )
-          }
-          if (payload.eventType === 'INSERT') {
-            setProducts((prev) => [...prev, payload.new])
-          }
-          if (payload.eventType === 'DELETE') {
-            setProducts((prev) =>
-              prev.filter((p) => p.id !== payload.old.id)
-            )
-          }
+      .channel('supabase_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setProducts((prev) => prev.map((p) => p.id === payload.new.id ? { ...p, ...payload.new } : p))
         }
-      )
+        if (payload.eventType === 'INSERT') {
+          setProducts((prev) => [...prev, payload.new])
+        }
+        if (payload.eventType === 'DELETE') {
+          setProducts((prev) => prev.filter((p) => p.id !== payload.old.id))
+        }
+      })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => supabase.removeChannel(channel)
   }, [])
 
   const fetchProducts = async () => {
     try {
-      if (!syncAllowed === false) {
-        Alert.alert('Low Battery', 'Battery is critically low — showing cached products to conserve power.')
+      console.log('fetching products...')
+
+      if (!syncAllowed) {
+        Alert.alert(
+          locale === 'en' ? 'Low Battery' : 'Batterie faible',
+          locale === 'en' ? 'Showing cached products to save power.' : 'Affichage des produits en cache.'
+        )
         const cached = await loadProductsFromCache()
         if (cached) setProducts(cached)
         return
@@ -116,6 +145,7 @@ export default function ProductList({ navigation, route }) {
 
       const netState = await NetInfo.fetch()
       const connected = netState.isConnected && netState.isInternetReachable !== false
+
       if (!connected) {
         setIsOffline(true)
         const cached = await loadProductsFromCache()
@@ -128,6 +158,7 @@ export default function ProductList({ navigation, route }) {
       if (error) throw error
       setProducts(data)
       await saveProductsToCache(data)
+
     } catch (error) {
       console.error('Error fetching products:', error)
       const cached = await loadProductsFromCache()
@@ -138,101 +169,107 @@ export default function ProductList({ navigation, route }) {
     }
   }
 
-  const renderItem = ({ item, separators }) => (
-    <TouchableHighlight
-  key={item.id}
-  onPress={() => setSelectedId(item.id === selectedId ? null : item.id)}
-  onLongPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-  onShowUnderlay={separators.highlight}
-  onHideUnderlay={separators.unhighlight}
-  style={[styles.item, item.id === selectedId && styles.itemSelected]}
->
-  <Item
-    product={item}
-    onAddToCart={addItem}
-    onAddToWishlist={addToWishlist}
-  />
-</TouchableHighlight>
-  )
+  async function decreaseStock(product) {
+    const newStock = product.stock - 1
+    setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, stock: newStock } : p))
+    const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', product.id)
+    if (error) Alert.alert('Error', error.message)
+  }
 
-  const ListHeaderComponent = () => (
-    <View>
-      {isOffline && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>📵 Offline — showing cached products</Text>
-        </View>
-      )}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🌸 Flower Shop</Text>
-        <Text style={styles.headerSubtitle}>{filteredProducts.length} flowers available</Text>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryBar}
-        contentContainerStyle={styles.categoryBarContent}
-      >
-        {CATEGORIES.map((category) => (
-          <TouchableHighlight
-            key={category}
-            onPress={() => setSelectedCategory(category)}
-            style={[styles.chip, selectedCategory === category && styles.chipSelected]}
-            underlayColor="#c2185b"
-          >
-            <Text style={[styles.chipText, selectedCategory === category && styles.chipTextSelected]}>
-              {category}
-            </Text>
-          </TouchableHighlight>
-        ))}
-      </ScrollView>
-    </View>
-  )
-
-  const ListEmptyComponent = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>🌿 No flowers found in this category.</Text>
-    </View>
-  )
-
-  const ListFooterComponent = () => (
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>🌼 End of collection</Text>
-    </View>
-  )
   async function addToWishlist(product) {
-    const { error } = await supabase
-      .from('wishlist')
-      .insert({ user_id: userId, product_id: String(product.id) });
-    if (error) Alert.alert('Error', error.message);
-    else Alert.alert('Added to Wishlist ❤️');
+    const { error } = await supabase.from('wishlist').insert({ user_id: userId, product_id: String(product.id) })
+    if (error) Alert.alert('Error', error.message)
+    else Alert.alert(locale === 'en' ? 'Added to Wishlist ' : 'Ajouté aux favoris ❤️')
   }
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container}>
-        <Button title="Add Product" onPress={() => navigation.navigate('AddProduct')} />
-        <Button title="Scan Barcode" onPress={() => navigation.navigate('BarCode')} />
-        <Button title="Push Notifications" onPress={() => navigation.navigate('PushNotifications')} />
-        <Button title="Store Locator" onPress={() => navigation.navigate('StoreLocator')} />
-        <Button title="View Cart" onPress={() => navigation.navigate('CartScreen')} />
-        <Button title="Order History" onPress={() => navigation.navigate('OrderHistory', { userId })} />
-        <Button title="Wishlist" onPress={() => navigation.navigate('Wishlist', { userId })} />
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+
+      <Button title="Sign Out" onPress={() => supabase.auth.signOut()} />
+        <Button title={locale === 'en' ? 'Add Product' : 'Ajouter produit'} onPress={() => navigation.navigate('AddProduct')} />
+        <Button title={locale === 'en' ? 'Scan Barcode' : 'Scanner'} onPress={() => navigation.navigate('BarCode')} />
+        <Button title={locale === 'en' ? 'Store Locator' : 'Trouver magasin'} onPress={() => navigation.navigate('StoreLocator')} />
+        <Button title={locale === 'en' ? 'View Cart' : 'Voir panier'} onPress={() => navigation.navigate('CartScreen')} />
+        <Button title={locale === 'en' ? 'Order History' : 'Historique'} onPress={() => navigation.navigate('OrderHistory', { userId })} />
+        <Button title={locale === 'en' ? 'Wishlist' : 'Favoris'} onPress={() => navigation.navigate('Wishlist', { userId })} />
+        <Button title={locale === 'en' ? 'FR' : 'EN'} onPress={toggleLocale} />
+        <Button
+          title={isDark ? (locale === 'en' ? ' Light Mode' : ' Mode clair') : (locale === 'en' ? ' Dark Mode' : 'Mode sombre')}
+          onPress={() => setIsDark((prev) => !prev)}
+          color={theme.toggleBg}
+        />
+
         <FlatList
           data={filteredProducts}
-          renderItem={renderItem}
           keyExtractor={(item) => String(item.id)}
-          extraData={selectedId}
-          ListHeaderComponent={ListHeaderComponent}
-          ListFooterComponent={ListFooterComponent}
-          ListEmptyComponent={ListEmptyComponent}
-          ItemSeparatorComponent={({ highlighted }) =>
-            Platform.OS !== 'android' && (
-              <View style={[styles.separator, highlighted && { marginLeft: 0 }]} />
-            )
-          }
+          extraData={[selectedId, locale, isDark]}
           initialNumToRender={5}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{ paddingBottom: 16 }}
+          ItemSeparatorComponent={() =>
+            Platform.OS !== 'android' && (
+              <View style={{ height: 1, marginLeft: 16, backgroundColor: '#eee' }} />
+            )
+          }
+          ListHeaderComponent={() => (
+            <View>
+              {isOffline && (
+                <View style={{ backgroundColor: '#FF7043', padding: 10, alignItems: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                    {locale === 'en' ? '📵 Offline — showing cached products' : '📵 Hors ligne — produits en cache'}
+                  </Text>
+                </View>
+              )}
+              <View style={{ backgroundColor: theme.headerBg, padding: 16 }}>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: theme.headerTitle }}>
+                  {locale === 'en' ? 'Flower Shop' : 'Boutique de Fleurs'}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#888' }}>
+                  {locale === 'en' ? `${filteredProducts.length} available` : `${filteredProducts.length} disponibles`}
+                </Text>
+              </View>
+              {/* TODO: maybe add a search bar here later */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#eee' }} contentContainerStyle={{ padding: 10 }}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableHighlight
+                    key={cat}
+                    onPress={() => setSelectedCategory(cat)}
+                    style={[styles.chip, { backgroundColor: selectedCategory === cat ? theme.chipSelectedBg : theme.chipBg }]}
+                    underlayColor={theme.chipSelectedBg}
+                  >
+                    <Text style={{ color: selectedCategory === cat ? theme.chipTextSelected : theme.chipText }}>
+                      {locale === 'en' ? cat : cat === 'All' ? 'Tout' : cat === 'Flowers' ? 'Fleurs' : 'Plantes'}
+                    </Text>
+                  </TouchableHighlight>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+      
+          renderItem={({ item, separators }) => (
+            <TouchableHighlight
+              key={item.id}
+              onPress={() => setSelectedId(item.id === selectedId ? null : item.id)}
+              onLongPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+              onShowUnderlay={separators.highlight}
+              onHideUnderlay={separators.unhighlight}
+              style={[
+                styles.item,
+                { backgroundColor: theme.cardBg, borderColor: item.id === selectedId ? theme.itemSelectedBorder : theme.itemBorder },
+              ]}
+            >
+              <Item
+                product={item}
+                onAddToCart={addItem}
+                onAddToWishlist={addToWishlist}
+                onDecreaseStock={decreaseStock}
+                formatPrice={formatPrice}
+                locale={locale}
+                theme={theme}
+              />
+            </TouchableHighlight>
+          )}
         />
       </SafeAreaView>
     </SafeAreaProvider>
@@ -242,76 +279,7 @@ export default function ProductList({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDE7',
     marginTop: StatusBar.currentHeight || 0,
-  },
-  header: {
-    backgroundColor: '#FFEB3B',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  headerTitle: {
-    fontSize: 22,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#7B3F00',
-    marginTop: 2,
-  },
-  categoryBar: {
-    maxHeight: 56,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f8bbd0',
-  },
-  categoryBarContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#fce4ec',
-    marginRight: 8,
-  },
-  chipSelected: {
-    backgroundColor: '#FF6B9D',
-  },
-  chipText: {
-    fontSize: 13,
-    color: '#880e4f',
-    fontWeight: '500',
-  },
-  chipTextSelected: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  list: {
-    paddingBottom: 16,
-  },
-  item: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    elevation: 3,
-    shadowColor: '#e91e8c',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  itemSelected: {
-    borderColor: '#e91e8c',
-  },
-  itemContent: {
-    backgroundColor: '#fff',
   },
   image: {
     width: '100%',
@@ -320,78 +288,25 @@ const styles = StyleSheet.create({
   itemInfo: {
     padding: 12,
   },
-  itemCategory: {
-    fontSize: 11,
-    color: '#FF6B9D',
-    textTransform: 'uppercase',
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
-  itemName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D2D2D',
-    marginTop: 4,
-  },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#555',
-    marginTop: 4,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#f8bbd0',
-    marginLeft: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#aaa',
-  },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#ccc',
-  },
-  stockRow: {
-    marginTop: 8,
-    marginHorizontal: 12,
-    marginBottom: 10,
-  },
   stockBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#E8F5E9',
+    marginHorizontal: 12,
+    marginBottom: 10,
   },
-  stockBadgeLow: {
-    backgroundColor: '#FFF8E1',
-  },
-  stockBadgeOut: {
-    backgroundColor: '#FFEBEE',
-  },
-  stockText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-  },
-  offlineBanner: {
-    backgroundColor: '#FF7043',
+  chip: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
   },
-  offlineText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
+  item: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
   },
 })

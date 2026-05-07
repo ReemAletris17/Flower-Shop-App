@@ -1,30 +1,31 @@
 import React, { Component } from 'react';
-import { CameraView } from 'expo-camera'; 
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { CameraView } from 'expo-camera';
+import { StyleSheet, View, Alert } from 'react-native';
 
 export default class App extends Component {
-  state = {
-    scanned: false,
-  };
+  state = { scanned: false };
+  isHandling = false;
 
   handleBarCodeScanned = ({ type, data }) => {
+    if (this.isHandling) return;
+    this.isHandling = true;
     this.setState({ scanned: true });
-    alert(`Bar code with type ${type} and data ${data} has been scanned!`);
+    Alert.alert('Scanned', `Type: ${type}\nData: ${data}`, [
+      { text: 'OK', onPress: () => {
+        this.isHandling = false;
+        this.setState({ scanned: false });
+      }}
+    ]);
   };
 
   render() {
     return (
       <View style={styles.container}>
         <CameraView
-          onBarcodeScanned={this.state.scanned ? undefined : this.handleBarCodeScanned}
-          barcodeScannerSettings={{
-            barcodeTypes: ["qr", "pdf417"],
-          }}
+          onBarcodeScanned={this.handleBarCodeScanned}
+          barcodeScannerSettings={{ barcodeTypes: ['qr', 'pdf417'] }}
           style={StyleSheet.absoluteFillObject}
         />
-        {this.state.scanned && (
-          <Button title={'Tap to Scan Again'} onPress={() => this.setState({ scanned: false })} />
-        )}
       </View>
     );
   }

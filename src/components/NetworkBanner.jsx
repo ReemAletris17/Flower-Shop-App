@@ -14,12 +14,12 @@ export default function NetworkBanner() {
 
       if (!connected) {
         setIsConnected(false);
-        setBannerMessage('📵 No internet connection');
+        setBannerMessage('No internet connection');
         setShowBanner(true);
         slideDown();
       } else {
         setIsConnected(true);
-        setBannerMessage('✅ Back online');
+        setBannerMessage('Back online');
         setShowBanner(true);
         slideDown();
         setTimeout(() => {

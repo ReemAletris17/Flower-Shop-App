@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './src/lib/supabase'
 import Auth from './src/components/Auth'
-import { View } from 'react-native'
 import ProductList from './src/components/ProductList';
 import AddProduct from './src/components/AddProduct';
 import BarCode from './src/components/BarCode';
-import PushNotifications from './src/components/PushNotifications';
 import StoreLocator from './src/components/StoreLocator';
 import ProductDetail from './src/components/ProductDetail';
 import Receipt from './src/components/Receipt';
@@ -22,47 +20,42 @@ import Wishlist from './src/components/Wishlist'
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [userId, setUserId] = useState(null)
-  const [email, setEmail] = useState(undefined)
+  const [userId, setUserId] = useState(null);
+  const [email, setEmail] = useState(undefined);
 
   useEffect(() => {
-      supabase.auth.onAuthStateChange(async (_event, _session) => {
-      const { data: { claims } } = await supabase.auth.getClaims()
-      if (claims) {
-        setUserId(claims.sub)
-        setEmail(claims.email)
-      } else {
-        setUserId(null)
-        setEmail(undefined)
-      }
-    })
-  }, [])
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id ?? null);
+      setEmail(session?.user?.email ?? undefined);
+    });
 
-  if (!userId) {
-    return <Auth />
-  }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null);
+      setEmail(session?.user?.email ?? undefined);
+    });
 
-  return (  
-    
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!userId) return <Auth />;
+
+  return (
     <NavigationContainer>
       <NetworkBanner />
-     <Stack.Navigator initialRouteName="ProductList">
-      <Stack.Screen name="ProductList" component={ProductList}  initialParams={{ userId }}/>
-      <Stack.Screen name="AddProduct" component={AddProduct} />
-      <Stack.Screen name="BarCode" component={BarCode} />
-      <Stack.Screen name="PushNotifications" component={PushNotifications} />
-      <Stack.Screen name="StoreLocator" component={StoreLocator} />
-      <Stack.Screen name="ProductDetail" component={ProductDetail} />
-      <Stack.Screen name="Receipt" component={Receipt} />
-      <Stack.Screen name="CartScreen" component={CartScreen} />
-      <Stack.Screen name="CheckoutScreen" component={CheckoutScreen} initialParams={{ userId }}/>
-      <Stack.Screen name="OrderConfirmation" component={OrderConfirmation} />
-      <Stack.Screen name="OrderHistory" component={OrderHistory} initialParams={{ userId }}/>
-      <Stack.Screen name="OrderDetail" component={OrderDetail} />
-      <Stack.Screen name="Wishlist" component={Wishlist} initialParams={{ userId }} />
-    </Stack.Navigator>
-    
-  </NavigationContainer>
-);
-  
+      <Stack.Navigator initialRouteName="ProductList">
+        <Stack.Screen name="ProductList" component={ProductList} initialParams={{ userId }} />
+        <Stack.Screen name="AddProduct" component={AddProduct} />
+        <Stack.Screen name="BarCode" component={BarCode} />
+        <Stack.Screen name="StoreLocator" component={StoreLocator} />
+        <Stack.Screen name="ProductDetail" component={ProductDetail} />
+        <Stack.Screen name="Receipt" component={Receipt} />
+        <Stack.Screen name="CartScreen" component={CartScreen} />
+        <Stack.Screen name="CheckoutScreen" component={CheckoutScreen} initialParams={{ userId }} />
+        <Stack.Screen name="OrderConfirmation" component={OrderConfirmation} />
+        <Stack.Screen name="OrderHistory" component={OrderHistory} initialParams={{ userId }} />
+        <Stack.Screen name="OrderDetail" component={OrderDetail} />
+        <Stack.Screen name="Wishlist" component={Wishlist} initialParams={{ userId }} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }

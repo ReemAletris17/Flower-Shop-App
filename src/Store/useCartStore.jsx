@@ -10,17 +10,16 @@ const useCartStore = create(
       // ADD ITEM
       addItem: (product) => {
         const { items } = get();
+        
         const existingItem = items.find((i) => i.id === product.id);
 
         if (existingItem) {
-          // If it exists, just bump the quantity
           set({
             items: items.map((i) =>
               i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
             ),
           });
         } else {
-          // Add new item with quantity 1
           set({ items: [...items, { ...product, quantity: 1 }] });
         }
       },
@@ -30,14 +29,14 @@ const useCartStore = create(
         set({ items: get().items.filter((i) => i.id !== productId) });
       },
 
-      // UPDATE QUANTITY (increment/decrement)
+      // UPDATE QUANTITY 
       updateQuantity: (productId, amount) => {
         const { items } = get();
         const updatedItems = items
           .map((i) =>
             i.id === productId ? { ...i, quantity: i.quantity + amount } : i
           )
-          .filter((i) => i.quantity > 0); // Remove if quantity hits 0
+          .filter((i) => i.quantity > 0);
 
         set({ items: updatedItems });
       },
@@ -51,7 +50,7 @@ const useCartStore = create(
       },
     }),
     {
-      name: 'shopping-cart', // Unique name for storage
+      name: 'shopping-cart',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

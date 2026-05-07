@@ -1,157 +1,97 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Button,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 
 export default function OrderDetail({ route, navigation }) {
   const { order } = route.params;
 
-  function getStatusColor(status) {
-    switch (status) {
-      case 'pending': return '#F9A825';
-      case 'confirmed': return '#388E3C';
-      case 'cancelled': return '#D32F2F';
-      default: return '#888';
-    }
-  }
+  const statusColor = { pending: '#F9A825', confirmed: '#388E3C', cancelled: '#D32F2F' };
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Order Details</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Order Info</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Order ID</Text>
-          <Text style={styles.value}>{order.id.slice(0, 8).toUpperCase()}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Date</Text>
-          <Text style={styles.value}>
-            {new Date(order.created_at).toLocaleDateString('en-EG', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Status</Text>
-          <Text style={[styles.value, { color: getStatusColor(order.status) }]}>
-            {order.status.toUpperCase()}
-          </Text>
-        </View>
-      </View>
+      <Text style={styles.sectionTitle}>Order Info</Text>
+      <Row label="Order ID" value={order.id.slice(0, 8).toUpperCase()} />
+      <Row label="Date" value={new Date(order.created_at).toLocaleDateString('en-EG', { year: 'numeric', month: 'long', day: 'numeric' })} />
+      <Row label="Status" value={order.status.toUpperCase()} valueStyle={{ color: statusColor[order.status] ?? '#888' }} />
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Delivery Details</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{order.full_name}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Phone</Text>
-          <Text style={styles.value}>{order.phone}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Address</Text>
-          <Text style={styles.value}>{order.address}, {order.city}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Card</Text>
-          <Text style={styles.value}>{order.card_number}</Text>
-        </View>
-      </View>
+      <Text style={styles.sectionTitle}>Delivery</Text>
+      <Row label="Name" value={order.full_name} />
+      <Row label="Phone" value={order.phone} />
+      <Row label="Address" value={`${order.address}, ${order.city}`} />
+      <Row label="Card" value={order.card_number} />
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Items Ordered</Text>
-        {order.items.map((item, index) => (
-          <View key={index} style={styles.row}>
-            <Text style={styles.label}>{item.name} x{item.quantity}</Text>
-            <Text style={styles.value}>
-              EGP {(item.price * item.quantity).toFixed(2)}
-            </Text>
-          </View>
-        ))}
-        <View style={[styles.row, styles.totalRow]}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>
-            EGP {Number(order.total).toFixed(2)}
-          </Text>
-        </View>
-      </View>
+      <Text style={styles.sectionTitle}>Items</Text>
+      {order.items.map((item, index) => (
+        <Row key={index} label={`${item.name} x${item.quantity}`} value={`EGP ${(item.price * item.quantity).toFixed(2)}`} />
+      ))}
+      <Row label="Total" value={`EGP ${Number(order.total).toFixed(2)}`} bold />
 
-      <Button
-        title="← Back to Order History"
-        onPress={() => navigation.goBack()}
-        color="#FFD700"
-      />
+      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
+        <Text style={styles.btnText}>← Back</Text>
+      </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+function Row({ label, value, valueStyle, bold }) {
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, bold && { fontWeight: '700', color: '#111' }]}>{label}</Text>
+      <Text style={[styles.value, bold && { fontWeight: '700', color: '#111' }, valueStyle]}>{value}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDE7',
+    backgroundColor: '#fff',
     padding: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#F57F17',
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FFD700',
-    marginBottom: 16,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#F57F17',
-    marginBottom: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 16,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   label: {
     fontSize: 14,
     color: '#888',
-    flex: 1,
   },
   value: {
     fontSize: 14,
+    color: '#111',
+    fontWeight: '500',
+    textAlign: 'right',
+  },
+  btn: {
+    backgroundColor: '#111',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 40,
+  },
+  btnText: {
+    color: '#fff',
     fontWeight: '600',
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#FFD700',
-    paddingTop: 10,
-    marginTop: 4,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#F57F17',
-    textAlign: 'right',
+    fontSize: 15,
   },
 });

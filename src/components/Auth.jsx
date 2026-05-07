@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Alert, Text, TextInput, TouchableOpacity, View, Image } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { appStyles } from '../styles/styles'
-import { registerForPushNotificationsAsync } from "../components/PushNotifications";
 
 
 async function saveToken(userId) {
