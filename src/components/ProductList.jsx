@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect} from 'react'
 import { FlatList, StyleSheet, Text, TouchableHighlight, View, Image, ScrollView, Button, Alert, Platform, StatusBar } from 'react-native'
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
@@ -23,7 +23,6 @@ const CATEGORIES = ['All', 'Flowers', 'Plants']
 const lightTheme = {
   bg: '#fff',
   cardBg: '#f9f9f9',
-
 }
 
 const darkTheme = {
@@ -108,7 +107,12 @@ export default function ProductList({ navigation, route }) {
       ? products
       : products.filter((p) => p.category === selectedCategory)
 
+  // ✅ FIX: Wait for battery to load before fetching products
+  // batteryLevel starts as -1 while expo-battery is initialising
+  // We skip until we get the real value, then run fetchProducts once
   useEffect(() => {
+    if (batteryLevel === -1) return // wait for real battery reading
+
     fetchProducts()
 
     const channel = supabase
@@ -127,11 +131,14 @@ export default function ProductList({ navigation, route }) {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [])
+  }, [batteryLevel]) // ✅ re-runs when batteryLevel changes from -1 to real value
 
   const fetchProducts = async () => {
     try {
       console.log('fetching products...')
+      console.log('Battery level:', batteryLevel)
+      console.log('Low power mode:', lowPowerMode)
+      console.log('Sync allowed:', syncAllowed)
 
       if (!syncAllowed) {
         Alert.alert(
