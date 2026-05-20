@@ -20,23 +20,12 @@ Notifications.setNotificationHandler({
 
 const CATEGORIES = ['All', 'Flowers', 'Plants']
 
-const lightTheme = {
-  bg: '#fff',
-  cardBg: '#f9f9f9',
-}
-
-const darkTheme = {
-  bg: '#121212',
-  cardBg: '#1e1e1e',
-}
+const lightTheme = { bg: '#fff', cardBg: '#f9f9f9' }
+const darkTheme = { bg: '#121212', cardBg: '#1e1e1e' }
 
 async function sendAddToCartNotification(productName) {
   await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Added to Cart!',
-      body: `${productName} has been added to your cart.`,
-      sound: true,
-    },
+    content: { title: 'Added to Cart!', body: `${productName} has been added to your cart.`, sound: true },
     trigger: null,
   })
 }
@@ -44,8 +33,7 @@ async function sendAddToCartNotification(productName) {
 const Item = ({ product, onAddToCart, onAddToWishlist, onDecreaseStock, formatPrice, locale, theme }) => {
   const stockBg =
     product.stock === 0 ? '#ffebee' :
-    product.stock <= 3 ? '#fff8e1' :
-    '#e8f5e9'
+    product.stock <= 3 ? '#fff8e1' : '#e8f5e9'
   const stockLabel =
     product.stock === 0
       ? (locale === 'en' ? 'Out of Stock' : 'Rupture de stock')
@@ -107,11 +95,8 @@ export default function ProductList({ navigation, route }) {
       ? products
       : products.filter((p) => p.category === selectedCategory)
 
-  // ✅ FIX: Wait for battery to load before fetching products
-  // batteryLevel starts as -1 while expo-battery is initialising
-  // We skip until we get the real value, then run fetchProducts once
   useEffect(() => {
-    if (batteryLevel === -1) return // wait for real battery reading
+    if (batteryLevel === -1) return
 
     fetchProducts()
 
@@ -131,15 +116,10 @@ export default function ProductList({ navigation, route }) {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [batteryLevel]) // ✅ re-runs when batteryLevel changes from -1 to real value
+  }, [batteryLevel])
 
   const fetchProducts = async () => {
     try {
-      console.log('fetching products...')
-      console.log('Battery level:', batteryLevel)
-      console.log('Low power mode:', lowPowerMode)
-      console.log('Sync allowed:', syncAllowed)
-
       if (!syncAllowed) {
         Alert.alert(
           locale === 'en' ? 'Low Battery' : 'Batterie faible',
@@ -169,10 +149,7 @@ export default function ProductList({ navigation, route }) {
     } catch (error) {
       console.error('Error fetching products:', error)
       const cached = await loadProductsFromCache()
-      if (cached) {
-        setProducts(cached)
-        setIsOffline(true)
-      }
+      if (cached) { setProducts(cached); setIsOffline(true) }
     }
   }
 
@@ -181,6 +158,13 @@ export default function ProductList({ navigation, route }) {
     setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, stock: newStock } : p))
     const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', product.id)
     if (error) Alert.alert('Error', error.message)
+  }
+
+  // ✅ NEW: restore stock when item is removed from cart
+  async function increaseStock(productId, amount = 1) {
+    setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, stock: p.stock + amount } : p))
+    const product = products.find((p) => p.id === productId)
+    if (product) await supabase.from('products').update({ stock: product.stock + amount }).eq('id', productId)
   }
 
   async function addToWishlist(product) {
@@ -192,8 +176,7 @@ export default function ProductList({ navigation, route }) {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-
-      <Button title="Sign Out" onPress={() => supabase.auth.signOut()} />
+        <Button title="Sign Out" onPress={() => supabase.auth.signOut()} />
         <Button title={locale === 'en' ? 'Add Product' : 'Ajouter produit'} onPress={() => navigation.navigate('AddProduct')} />
         <Button title={locale === 'en' ? 'Scan Barcode' : 'Scanner'} onPress={() => navigation.navigate('BarCode')} />
         <Button title={locale === 'en' ? 'Store Locator' : 'Trouver magasin'} onPress={() => navigation.navigate('StoreLocator')} />
@@ -236,7 +219,6 @@ export default function ProductList({ navigation, route }) {
                   {locale === 'en' ? `${filteredProducts.length} available` : `${filteredProducts.length} disponibles`}
                 </Text>
               </View>
-              {/* TODO: maybe add a search bar here later */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#eee' }} contentContainerStyle={{ padding: 10 }}>
                 {CATEGORIES.map((cat) => (
                   <TouchableHighlight
@@ -253,7 +235,6 @@ export default function ProductList({ navigation, route }) {
               </ScrollView>
             </View>
           )}
-      
           renderItem={({ item, separators }) => (
             <TouchableHighlight
               key={item.id}
@@ -284,36 +265,10 @@ export default function ProductList({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    marginTop: StatusBar.currentHeight || 0,
-  },
-  image: {
-    width: '100%',
-    height: 200,
-  },
-  itemInfo: {
-    padding: 12,
-  },
-  stockBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 10,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  item: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-  },
+  container: { flex: 1, marginTop: StatusBar.currentHeight || 0 },
+  image: { width: '100%', height: 200 },
+  itemInfo: { padding: 12 },
+  stockBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginHorizontal: 12, marginBottom: 10 },
+  chip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginRight: 8 },
+  item: { marginHorizontal: 16, marginTop: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 2 },
 })

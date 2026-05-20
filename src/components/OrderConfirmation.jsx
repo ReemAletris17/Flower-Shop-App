@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Button, StyleSheet } from 'react-native';
+import {Text, ScrollView, Button } from 'react-native';
 
 export default function OrderConfirmation({ route, navigation }) {
   const { order } = route.params;
